@@ -1,16 +1,16 @@
-docker run -it --rm --name zookeeper -p 2181:2181 -p 2888:2888 -p 3888:3888 debezium/zookeeper
-docker run -it --rm --name kafka -p 9092:9092 --link zookeeper:zookeeper debezium/kafka
+docker run -d --name zookeeper -p 2181:2181 -p 2888:2888 -p 3888:3888 debezium/zookeeper
+docker run -d --name kafka -p 9092:9092 --link zookeeper:zookeeper debezium/kafka
 
-docker run -it --rm --name mysql -p 3306:3306 -e MYSQL_ROOT_PASSWORD=debezium -e MYSQL_USER=mysqluser -e MYSQL_PASSWORD=mysqlpw debezium/example-mysql:1.0
+docker run -d --name mysql -p 3306:3306 -e MYSQL_ROOT_PASSWORD=debezium -e MYSQL_USER=mysqluser -e MYSQL_PASSWORD=mysqlpw debezium/example-mysql:1.0
 
-docker run --rm -it --name mydb2 --privileged=true -p 50000:50000 -e LICENSE=accept -e DB2INST1_PASSWORD=password -e DBNAME=testdb  ibmcom/db2
+docker run -d --name mydb2 --privileged=true -p 50000:50000 -e LICENSE=accept -e DB2INST1_PASSWORD=password -e DBNAME=testdb  ibmcom/db2
 
-docker run -it --rm --name connect -p 8083:8083 -e GROUP_ID=1 -e CONFIG_STORAGE_TOPIC=my_connect_configs -e OFFSET_STORAGE_TOPIC=my_connect_offsets -e STATUS_STORAGE_TOPIC=my_connect_statuses --link zookeeper:zookeeper --link kafka:kafka --link mysql:mysql philipz/debezium-connect:1.4
+docker run -d --name connect -p 8083:8083 -e GROUP_ID=1 -e CONFIG_STORAGE_TOPIC=my_connect_configs -e OFFSET_STORAGE_TOPIC=my_connect_offsets -e STATUS_STORAGE_TOPIC=my_connect_statuses --link zookeeper:zookeeper --link kafka:kafka --link mysql:mysql philipz/debezium-connect:1.4
 
 DB2 Docker:
 
 Copy the contents of the github repo into the container:
-  docker cp Documents/cdc/debezium-incubator/debezium-connector-db2 mydb2:/database
+  docker cp ./debezium-connector-db2 mydb2:/database
 
 Login to the container
   docker exec -it mydb2 sh
@@ -27,8 +27,6 @@ Change to db2inst1 user
   cd $HOME/sqllib/bnd
   db2 connect to testdb
   db2 bind db2schema.bnd blocking all grant public sqlerror continue
-  db2 backup db testdb to /dev/null
-  db2 connect to testdb
   cp $HOME/asncdctools/src/asncdc $HOME/sqllib/function
   chmod 777 $HOME/sqllib/function
   db2 -tvmf $HOME/asncdctools/src/asncdc_UDF.sql
@@ -41,7 +39,14 @@ VALUES ASNCDC.ASNCDCSERVICES('start','asncdc');
 Check the ASN status
 VALUES ASNCDC.ASNCDCSERVICES('status','asncdc');
 
-CALL ASNCDC.ADDTABLE('TESTSCHEMA', 'customers');
+CALL ASNCDC.ADDTABLE('TESTSCHEMA', 'CUSTOMERS');
+
+CREATE TABLE TESTSCHEMA.customers (
+ ID INTEGER generated always as identity (start with 1000 increment by 1) NOT NULL PRIMARY KEY,
+ FIRST_NAME VARCHAR(255) NOT NULL,
+ LAST_NAME VARCHAR(255) NOT NULL,
+ EMAIL VARCHAR(255) NOT NULL UNIQUE
+);
 
 -- source connector with debezium connector
 curl -i -X POST -H "Accept:application/json" -H "Content-Type:application/json" localhost:8083/connectors/ -d '{
